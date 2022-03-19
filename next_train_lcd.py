@@ -166,9 +166,9 @@ while True:
                     last_press = time.time()
                 already_waited = True
 
-            # short-circuit if we already waited
-            if not already_waited and wait_for_full_press(TIME_PER_PAGE):
-                last_press = time.time()
+        # short-circuit if we already waited
+        if not already_waited and wait_for_full_press(TIME_PER_PAGE):
+            last_press = time.time()
 
         if (time.time() - last_press) > SLEEP_TIMEOUT:
             break
