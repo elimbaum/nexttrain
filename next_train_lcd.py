@@ -6,7 +6,6 @@ print("  importing digital io")
 import board
 import digitalio
 import adafruit_character_lcd.character_lcd as characterlcd
-from repo.next_train_term import train_sorter
 
 ### DISPLAY SETUP
 lcd_rs = digitalio.DigitalInOut(board.D2)
