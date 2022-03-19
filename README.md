@@ -10,7 +10,7 @@ Added to `/etc/rc.local` - run in the background. using `python3 -u` to not buff
 
 ## circuit notes
 - PFET to turn on backlight. this maximizes the brightness when on but does mean it's active low - i.e. when program not running, backlight on.
-    - default pull up maybe? added `gpio=10=op,pu` to `/boot/config.txt`
+    - default pull up maybe? added `gpio=10=op,pu` to `/boot/config.txt`. didn't seem to do anything.
 - trimpot for contrast
 - should move schematic/board into here eventually.
 - first solder-up didn't work because i mounted the transistor, and the raspi pin headers, backwards.
