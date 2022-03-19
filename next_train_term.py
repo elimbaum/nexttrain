@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 
 import urllib.request as url
-
+import os
 import json
 
-API_KEY = open("/home/pi/.wmata_api_key").read().strip()
+if 'WMATA_KEY' in os.environ:
+	API_KEY = os.environ['WMATA_KEY']
+else:
+	open("/home/pi/.wmata_api_key").read().strip()
+
 API_URL = "http://api.wmata.com/StationPrediction.svc/json/GetPrediction/"
 
 # station = "K02" # Clarendon
@@ -28,6 +32,18 @@ colors = {
 
 json = json.JSONDecoder()
 
+def train_sorter(train):
+	time = train['Min']
+
+	if time.isdigit():
+		return int(time)
+
+	if time == "ARR":
+		return -1
+	
+	if time == "BRD":
+		return -2
+
 with url.urlopen(f"{API_URL}{station}?api_key={API_KEY}") as conn:
 	resp = conn.read().decode()
 	parsed = json.decode(resp)[TOP_KEY]
@@ -35,17 +51,10 @@ with url.urlopen(f"{API_URL}{station}?api_key={API_KEY}") as conn:
 	last_group = None
 
 	# Group is which track the train is on
-	for train in sorted(parsed, key=lambda c:c['Group']):
+	for train in sorted(parsed, key=train_sorter):
 		line = train['Line']
 		dest = train['Destination']
 		time = train['Min']
-		grp = train['Group']
-
-		# linebreak between tracks
-		if last_group != None and last_group != grp:
-			print()
-
-		last_group = grp
 
 		# No passengers
 		if line not in iter(colors):
@@ -55,4 +64,4 @@ with url.urlopen(f"{API_URL}{station}?api_key={API_KEY}") as conn:
 			time += "m"
 		
 		print(f"{COLOR_PREFIX}{colors[line]}m", end='')
-		print(f"{line} {dest:10} {time:>4} {COLOR_RESET}")
+		print(f"{line} {dest:10} {time:>4}{COLOR_RESET}")

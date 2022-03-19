@@ -6,6 +6,7 @@ print("  importing digital io")
 import board
 import digitalio
 import adafruit_character_lcd.character_lcd as characterlcd
+from repo.next_train_term import train_sorter
 
 ### DISPLAY SETUP
 lcd_rs = digitalio.DigitalInOut(board.D2)
@@ -34,7 +35,7 @@ lcd = characterlcd.Character_LCD_Mono(
     lcd_columns, lcd_rows, lcd_backlight)
 set_backlight(True)
 
-lcd.message = "NextTrain\nbooting..."
+lcd.message = "nexttrainbox\nchoo choo..."
 
 print("  importing gpio")
 from gpiozero import Button
@@ -59,7 +60,6 @@ json = json.JSONDecoder()
 # station = "D07" # Potomac Ave
 # station "C05" # Rosslyn
 station = "E04" # columbia heights
-
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -92,21 +92,27 @@ def wait_for_full_press(t=None):
     button_nc.wait_for_press()
     return True
 
+def train_sorter(train):
+	time = train['Min']
+
+	if time.isdigit():
+		return int(time)
+
+	if time == "ARR":
+		return -1
+	
+	if time == "BRD":
+		return -2
+
 def get_new_data():
-    print("getting new data...")
+    # print("getting new data...")
     t = time.time()
     with url.urlopen(API_URL + station + "?api_key=" + API_KEY) as conn:
         resp = conn.read().decode()
         parsed = json.decode(resp)[TOP_KEY]
-        print("  new:", len(parsed), "trains ({:.4} sec)".format(time.time() - t))
+        # print("  new:", len(parsed), "trains ({:.4} sec)".format(time.time() - t))
 
-        print(parsed)
-
-        group_dict = defaultdict(list)
-        for t in parsed:
-            group_dict[t['Group']].append(t)
-
-        return group_dict
+        return sorted(parsed, key=train_sorter)
 
 def shutdown(s, f):
     lcd.clear()
@@ -142,28 +148,24 @@ while True:
             break
 
         # sort by direction. reverse so that westbound trains are first
-        track_list = sorted(trains.keys(), reverse=True)
-        # print("tracks:", track_list)
+        trains = sorted(trains, key=train_sorter)
 
-        for track in track_list:
-            display_top_line = True
+        display_top_line = True
+        for t in trains:
+            already_waited = False
+            # print(t)
+            if display_top_line:    
+                lcd.clear()
+                lcd.message = build_train_msg(t) + "\n"
+                display_top_line = False
+            else:
+                lcd.message += build_train_msg(t)
+                display_top_line = True
 
-            # API returns trains pre-sorted by time
-            for t in trains[track]:
-                already_waited = False
-                # print(t)
-                if display_top_line:    
-                    lcd.clear()
-                    lcd.message = build_train_msg(t) + "\n"
-                    display_top_line = False
-                else:
-                    lcd.message += build_train_msg(t)
-                    display_top_line = True
-
-                    # press to advance to next page, or wait a few sec
-                    if wait_for_full_press(TIME_PER_PAGE):
-                        last_press = time.time()
-                    already_waited = True
+                # press to advance to next page, or wait a few sec
+                if wait_for_full_press(TIME_PER_PAGE):
+                    last_press = time.time()
+                already_waited = True
 
             # short-circuit if we already waited
             if not already_waited and wait_for_full_press(TIME_PER_PAGE):
