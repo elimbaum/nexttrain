@@ -4,7 +4,9 @@ rpi box that tells me when the next metro is coming
 - `next_train_term.py`: prototype that displays train info in the terminal
 - `next_train_lcd.py`: raspi 16x2 character lcd version
 
-Added to `/etc/rc.local` - run in the background. using `python3 -u` to not buffer the log file, in case there are transient errors i want to check on.
+Added to `/etc/rc.local` - run in the background. using `python3 -u` to not buffer the log file, in case there are transient errors i want to check on
+
+disabled gui in `raspi-config`. should save some cpu/mem.
 
 `requirements.txt` is way too much - just copied user env over to sudo env. but fine for now.
 

@@ -92,16 +92,21 @@ def wait_for_full_press(t=None):
     return True
 
 def train_sorter(train):
-	time = train['Min']
+    time = train['Min']
 
-	if time.isdigit():
-		return int(time)
+    if time.isdigit():
+        return int(time)
 
-	if time == "ARR":
-		return -1
-	
-	if time == "BRD":
-		return -2
+    if time == "ARR":
+        return -1
+    
+    if time == "BRD":
+        return -2
+
+    # sometimes, no time is returned; i.e. time == None
+    # call this far in the future (I think this is for trains that have not
+    # yet started moving)
+    return 60
 
 def get_new_data():
     # print("getting new data...")
