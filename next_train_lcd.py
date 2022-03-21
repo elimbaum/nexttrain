@@ -3,6 +3,7 @@
 print("next-train lcd")
 print("getting ready...")
 print("  importing digital io")
+from asyncio import wait_for
 import board
 import digitalio
 import adafruit_character_lcd.character_lcd as characterlcd
@@ -40,6 +41,7 @@ print("  importing gpio")
 from gpiozero import Button
 
 print("  importing api")
+import urllib
 import urllib.request as url
 import json
 
@@ -111,6 +113,7 @@ def train_sorter(train):
 def get_new_data():
     # print("getting new data...")
     t = time.time()
+
     with url.urlopen(API_URL + station + "?api_key=" + API_KEY) as conn:
         resp = conn.read().decode()
         parsed = json.decode(resp)[TOP_KEY]
@@ -144,8 +147,17 @@ while True:
     # display loop
     while True:
         lcd.clear()
-        trains = get_new_data()
 
+        try:
+            trains = get_new_data()
+        except urllib.error.URLError:
+            # if there was an error getting the train data
+            # this can happen very soon after boot
+            lcd.message = "error :/\nplease try again"
+            wait_for_full_press(TIME_PER_PAGE)
+            break
+
+        # empty response from api
         if len(trains) == 0:
             lcd.message = "No trains :("
             wait_for_full_press(TIME_PER_PAGE)
