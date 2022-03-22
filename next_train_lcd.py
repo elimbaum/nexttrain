@@ -153,7 +153,7 @@ while True:
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
-            lcd.message = "error :/\nplease try again"
+            lcd.message = "connection error\nplease try again"
             wait_for_full_press(TIME_PER_PAGE)
             break
 
