@@ -20,3 +20,11 @@ disabled gui in `raspi-config`. should save some cpu/mem.
 ## todo maybe
 - improved logging if errors
 - press and hold for debug? inet connectivity, etc.
+
+## first case print notes
+- button is tight but that's fine. Not really room to screw in the collar.
+- need a bit more vertical room for the rpi. should be LOOSE to slide in.
+- display
+    - vertical: is 26mm, needs to be 26.5
+    - horizontal: is 71mm, needs to be 71.4
+- adjust USB
