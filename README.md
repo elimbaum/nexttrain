@@ -28,3 +28,22 @@ disabled gui in `raspi-config`. should save some cpu/mem.
     - vertical: is 26mm, needs to be 26.5
     - horizontal: is 71mm, needs to be 71.4
 - adjust USB
+
+## Wifi
+After moving, needed to update the wifi! and forgot how... This did it:
+
+Create `wpa_supplicant.conf`:
+
+```
+country=US
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+network={
+  ssid="WIFI NAME"
+  scan_ssid=1
+  psk="WIFI PASSWORD"
+  key_mgmt=WPA-PSK
+}
+```
+
+and copy to the SD card `boot` partition.
