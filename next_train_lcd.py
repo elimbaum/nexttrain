@@ -90,12 +90,14 @@ def build_message(line_name, data):
         delta_minutes = str(math.floor((t - now).total_seconds() / 60))
         arrival_times.append(delta_minutes)
 
-    if data:
-        arr_str = ', '.join(arrival_times) + ' m'
+    def _build_arr_str(x):
+        return ', '.join(x) + ' m'
 
+    if data:
+        arr_str = _build_arr_str(arrival_times)
         while len(arr_str) > available_space:
             arrival_times = arrival_times[:-1]
-            arr_str = ', '.join(arrival_times)
+            arr_str =_build_arr_str(arrival_times)
     else:
         arr_str = "none :("
     
@@ -138,6 +140,8 @@ def shutdown(s, f):
 
 signal.signal(signal.SIGINT, shutdown)
 
+time.sleep(1)
+
 # Check internet
 try:
     with url.urlopen('https://8.8.8.8', context=ctx) as conn:
@@ -158,25 +162,24 @@ while True:
     set_backlight(True) 
     lcd.message = "Loading..."
 
-    # display loop
+    # display updates
     while True:
-        lcd.clear()
-
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
             bus_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
+            lcd.clear()
             lcd.message = "connection error\nplease try again"
             wait_for_full_press(SLEEP_TIMEOUT)
             break
 
+        lcd.clear()
         s = ( build_message("CT2", bus_times) + "\n"
             + build_message("GL ", train_times))
 
         lcd.message = s
 
-        # short-circuit if we already waited
-        if wait_for_full_press(SLEEP_TIMEOUT):
-            break
+        wait_for_full_press(SLEEP_TIMEOUT)
+        break
