@@ -47,3 +47,25 @@ network={
 ```
 
 and copy to the SD card `boot` partition.
+
+## Updates for MBTA
+
+- API information is [here](https://api-v3.mbta.com/).
+
+To get predictions for Union Square,
+
+```sh
+curl -H "x-api-key: $MBTA_KEY" 'https://api-v3.mbta.com/predictions?filter%5Bstop%5D=place-unsqu' | jq
+```
+
+And my bus stop in the morning:
+```sh
+curl -H "x-api-key: $MBTA_KEY" 'https://api-v3.mbta.com/predictions?filter%5Bstop%5D=2612&filter%5Broute%5D=747' | jq
+```
+
+(`747` is CT2, and my bus stop is [#2612](https://www.mbta.com/stops/2612))
+
+This `jq` query string will return the arrival times:
+```sh
+jq -r '.data .[].attributes.arrival_time
+```

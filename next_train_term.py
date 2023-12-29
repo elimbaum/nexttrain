@@ -3,20 +3,20 @@
 import urllib.request as url
 import os
 import json
+import ssl
+import certifi
+import math
+from datetime import datetime, timezone
 
-if 'WMATA_KEY' in os.environ:
-	API_KEY = os.environ['WMATA_KEY']
+if 'MBTA_KEY' in os.environ:
+	API_KEY = os.environ['MBTA_KEY']
 else:
-	open("/home/pi/.wmata_api_key").read().strip()
+	API_KEY = open("/home/pi/.mbta_api_key").read().strip()
 
-API_URL = "http://api.wmata.com/StationPrediction.svc/json/GetPrediction/"
+API_URL = "https://api-v3.mbta.com/predictions?filter[stop]="
+ctx = ssl.create_default_context(cafile=certifi.where())
 
-# station = "K02" # Clarendon
-# station = "C05" # Rosslyn
-station = "E04" # columbia heights
-# station = "All"
-
-TOP_KEY = "Trains"
+TOP_KEY = 'data'
 
 COLOR_PREFIX = "\033[38;5;"
 COLOR_RESET = "\033[0m"
@@ -29,6 +29,8 @@ colors = {
 	'YL' : 11,
 	'RD' : 1
 }
+
+DISPLAY_WIDTH = 16
 
 json = json.JSONDecoder()
 
@@ -43,25 +45,42 @@ def train_sorter(train):
 	
 	if time == "BRD":
 		return -2
+	
 
-with url.urlopen(f"{API_URL}{station}?api_key={API_KEY}") as conn:
-	resp = conn.read().decode()
-	parsed = json.decode(resp)[TOP_KEY]
+def get_arrival_times(station, route=None):
+	now = datetime.now(tz=timezone.utc)
 
-	last_group = None
+	request_url = f"{API_URL}{station}"
+	if route:
+		request_url = f"{API_URL}{station}&filter[route]={route}"
 
-	# Group is which track the train is on
-	for train in sorted(parsed, key=train_sorter):
-		line = train['Line']
-		dest = train['Destination']
-		time = train['Min']
+	req = url.Request(request_url, headers={'x-api-key': API_KEY})
 
-		# No passengers
-		if line not in iter(colors):
-			continue
+	with url.urlopen(req, context=ctx) as conn:
+		resp = conn.read().decode()
+		parsed = json.decode(resp)[TOP_KEY]
 
-		if time.isdigit():
-			time += "m"
-		
-		print(f"{COLOR_PREFIX}{colors[line]}m", end='')
-		print(f"{line} {dest:10} {time:>4}{COLOR_RESET}")
+		output = []
+
+		for v in parsed:
+			attr = v['attributes']
+			time_str = attr['departure_time']
+			if time_str == None:
+				time_str = attr['arrival_time']
+
+			t = datetime.fromisoformat(time_str)
+			delta_minutes = str(math.floor((t - now).total_seconds() / 60))
+			output.append(delta_minutes)
+			
+		s = ' '.join(output)[:DISPLAY_WIDTH - 4]
+		return s.rjust(DISPLAY_WIDTH - 4)
+
+
+BUS_STOP = "2612"
+GL_STOP  = "place-unsqu"
+
+print(f"{COLOR_PREFIX}{colors['YL']}m" "CT2 ", end='')
+print(get_arrival_times(BUS_STOP, 747))
+
+print(f"{COLOR_PREFIX}{colors['GR']}m" "GL  ", end='')
+print(get_arrival_times(GL_STOP))
