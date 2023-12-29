@@ -112,7 +112,7 @@ def wait_for_full_press(t=None):
     button_nc.wait_for_press()
     return True
 
-def get_arrival_times(station, route):
+def get_arrival_times(station, route=None):
     # print("getting new data...")
     request_url = f"{API_URL}{station}"
 
@@ -140,9 +140,11 @@ signal.signal(signal.SIGINT, shutdown)
 
 # Check internet
 try:
-    with url.urlopen('1.1.1.1') as conn:
+    with url.urlopen('https://8.8.8.8', context=ctx) as conn:
         pass
-except urllib.error.URLError:
+except urllib.error.URLError as e:
+    print(e)
+    lcd.clear()
     lcd.message = "no internet"
     wait_for_full_press(SLEEP_TIMEOUT)
 
