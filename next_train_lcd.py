@@ -87,7 +87,7 @@ def build_message(line_name, data):
             time_str = attr.get('arrival_time')
 
         t = datetime.fromisoformat(time_str)
-        delta_minutes = str(math.floor((t - now).total_seconds() / 60))
+        delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
         arrival_times.append(delta_minutes)
 
     def _build_arr_str(x):
