@@ -82,13 +82,15 @@ def build_message(line_name, data):
     arrival_times = []
     for v in data:
         attr = v.get('attributes', {})
-        time_str = attr.get('departure_time')
-        if time_str == None:
-            time_str = attr.get('arrival_time')
 
-        t = datetime.fromisoformat(time_str)
-        delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
-        arrival_times.append(delta_minutes)
+        time_str = attr.get('departure_time') or attr.get('arrival_time')
+
+        if time_str == None:
+            arrival_times.append('?')
+        else:
+            t = datetime.fromisoformat(time_str)
+            delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
+            arrival_times.append(delta_minutes)
 
     def _build_arr_str(x):
         return ', '.join(x) + ' m'

@@ -64,13 +64,14 @@ def get_arrival_times(station, route=None):
 
 		for v in parsed:
 			attr = v['attributes']
-			time_str = attr['departure_time']
-			if time_str == None:
-				time_str = attr['arrival_time']
+			time_str = attr.get('departure_time') or attr.get('arrival_time')
 
-			t = datetime.fromisoformat(time_str)
-			delta_minutes = str(math.floor((t - now).total_seconds() / 60))
-			output.append(delta_minutes)
+			if time_str == None:
+				output.append('?')
+			else:
+				t = datetime.fromisoformat(time_str)
+				delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
+				output.append(delta_minutes)
 			
 		s = ' '.join(output)[:DISPLAY_WIDTH - 4]
 		return s.rjust(DISPLAY_WIDTH - 4)
