@@ -73,15 +73,22 @@ def get_arrival_times(station, route=None):
 				delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
 				output.append(delta_minutes)
 			
+		output = output[:4]
 		s = ' '.join(output)[:DISPLAY_WIDTH - 4]
 		return s.rjust(DISPLAY_WIDTH - 4)
 
 
 BUS_STOP = "2612"
+BUS_STOP_2 = "25713"
 GL_STOP  = "place-unsqu"
 
 print(f"{COLOR_PREFIX}{colors['YL']}m" "CT2 ", end='')
 print(get_arrival_times(BUS_STOP, 747))
+
+print(f"{COLOR_PREFIX}{colors['RD']}m" "109H ", end='')
+print(get_arrival_times(BUS_STOP, 109))
+print(f"{COLOR_PREFIX}{colors['OR']}m" "109S ", end='')
+print(get_arrival_times(BUS_STOP_2, 109))
 
 print(f"{COLOR_PREFIX}{colors['GR']}m" "GL  ", end='')
 print(get_arrival_times(GL_STOP))
