@@ -22,19 +22,20 @@ lcd_backlight = digitalio.DigitalInOut(board.D10)
 lcd_pins = [lcd_rs, lcd_en, lcd_d7, lcd_d6, lcd_d5, lcd_d4, lcd_backlight]
 
 for p in lcd_pins:
-    p.switch_to_output()    
+    p.switch_to_output()
 
 lcd_columns = 16
 lcd_rows = 2
+
 
 # backlight is controlled by pfet, invert
 def set_backlight(state):
     lcd.backlight = not state
 
+
 lcd = characterlcd.Character_LCD_Mono(
-    lcd_rs, lcd_en,
-    lcd_d4, lcd_d5, lcd_d6, lcd_d7,
-    lcd_columns, lcd_rows, lcd_backlight)
+    lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7, lcd_columns, lcd_rows, lcd_backlight
+)
 set_backlight(True)
 
 lcd.message = "nexttrainbox\nchoo choo..."
@@ -58,7 +59,7 @@ from datetime import datetime, timezone
 
 ### API SETUP
 API_URL = "https://api-v3.mbta.com/predictions?filter[stop]="
-API_KEY = open('/home/pi/.mbta_api_key').read().strip()
+API_KEY = open("/home/pi/.mbta_api_key").read().strip()
 TOP_KEY = "data"
 json = json.JSONDecoder()
 
@@ -66,13 +67,15 @@ ctx = ssl.create_default_context(cafile=certifi.where())
 
 UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
 UNION_SQ_BUS_STOP = "2612"
-BUS_LINE = "747" # CT2 internal number
+HAWKINS_BUS_STOP = "25713"
+BUS_LINE = "747"  # CT2 internal number
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
 button_nc = Button(15, pull_up=True)
 
-SLEEP_TIMEOUT = 30 # seconds
+SLEEP_TIMEOUT = 30  # seconds
+
 
 def build_message(line_name, data):
     now = datetime.now(tz=timezone.utc)
@@ -81,29 +84,30 @@ def build_message(line_name, data):
 
     arrival_times = []
     for v in data:
-        attr = v.get('attributes', {})
+        attr = v.get("attributes", {})
 
-        time_str = attr.get('departure_time') or attr.get('arrival_time')
+        time_str = attr.get("departure_time") or attr.get("arrival_time")
 
         if time_str == None:
-            arrival_times.append('?')
+            arrival_times.append("?")
         else:
             t = datetime.fromisoformat(time_str)
             delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
             arrival_times.append(delta_minutes)
 
     def _build_arr_str(x):
-        return ', '.join(x) + ' m'
+        return ", ".join(x) + " m"
 
     if data:
         arr_str = _build_arr_str(arrival_times)
         while len(arr_str) > available_space:
             arrival_times = arrival_times[:-1]
-            arr_str =_build_arr_str(arrival_times)
+            arr_str = _build_arr_str(arrival_times)
     else:
         arr_str = "none :("
-    
+
     return f"{line_name} {arr_str.rjust(available_space)}"
+
 
 # spdt break-before-make microswitch (arcade button) full sequence
 def wait_for_full_press(t=None):
@@ -116,6 +120,7 @@ def wait_for_full_press(t=None):
     button_nc.wait_for_press()
     return True
 
+
 def get_arrival_times(station, route=None):
     # print("getting new data...")
     request_url = f"{API_URL}{station}"
@@ -123,7 +128,7 @@ def get_arrival_times(station, route=None):
     if route:
         request_url += f"&filter[route]={route}"
 
-    req = url.Request(request_url, headers={'x-api-key': API_KEY})
+    req = url.Request(request_url, headers={"x-api-key": API_KEY})
 
     with url.urlopen(req, context=ctx) as conn:
         resp = conn.read().decode()
@@ -132,11 +137,13 @@ def get_arrival_times(station, route=None):
 
         return parsed
 
+
 def shutdown(s, f):
     lcd.clear()
     set_backlight(False)
     print("\nbye")
     sys.exit(0)
+
 
 # TODO get new data in a thread on a timer
 
@@ -146,7 +153,7 @@ time.sleep(1)
 
 # Check internet
 try:
-    with url.urlopen('https://8.8.8.8', context=ctx) as conn:
+    with url.urlopen("https://8.8.8.8", context=ctx) as conn:
         pass
 except urllib.error.URLError as e:
     print(e)
@@ -161,14 +168,16 @@ while True:
 
     # wait to wake up from sleep
     wait_for_full_press()
-    set_backlight(True) 
+    set_backlight(True)
     lcd.message = "Loading..."
 
     # display updates
     while True:
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
-            bus_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
+            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
+            s109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
+            h109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
@@ -178,10 +187,20 @@ while True:
             break
 
         lcd.clear()
-        s = ( build_message("CT2", bus_times) + "\n"
-            + build_message("GL ", train_times))
+        s1 = build_message("CT2", ct2_times) + "\n" + build_message("GL ", train_times)
 
-        lcd.message = s
+        s2 = (
+            build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
+        )
 
-        wait_for_full_press(SLEEP_TIMEOUT)
-        break
+        lcd.message = s1
+
+        # on timeout, sleep. on press, next page
+        if not wait_for_full_press(SLEEP_TIMEOUT):
+            break
+
+        lcd.message = s2
+
+        # on press, reload
+        if not wait_for_full_press(SLEEP_TIMEOUT):
+            break
