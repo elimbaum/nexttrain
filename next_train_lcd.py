@@ -140,6 +140,7 @@ def get_arrival_times(station, route=None):
 
 def shutdown(s, f):
     lcd.clear()
+    lcd.message = "zzz..."
     set_backlight(False)
     print("\nbye")
     sys.exit(0)
@@ -169,10 +170,11 @@ while True:
     # wait to wake up from sleep
     wait_for_full_press()
     set_backlight(True)
-    lcd.message = "Loading..."
 
     # display updates
     while True:
+        lcd.clear()
+        lcd.message = "Loading..."
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
             ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
@@ -204,3 +206,4 @@ while True:
         # on press, reload
         if not wait_for_full_press(SLEEP_TIMEOUT):
             break
+
