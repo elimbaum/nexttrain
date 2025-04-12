@@ -178,8 +178,8 @@ while True:
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
             ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
-            s109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
-            h109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
+            h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
+            s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
