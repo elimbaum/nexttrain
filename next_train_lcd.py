@@ -89,7 +89,7 @@ def build_message(line_name, data):
         time_str = attr.get("departure_time") or attr.get("arrival_time")
 
         if time_str == None:
-            arrival_times.append("?")
+            continue # arrival_times.append("?")
         else:
             t = datetime.fromisoformat(time_str)
             delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
