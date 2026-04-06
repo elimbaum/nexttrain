@@ -68,7 +68,6 @@ ctx = ssl.create_default_context(cafile=certifi.where())
 UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
 UNION_SQ_BUS_STOP = "2612"
 HAWKINS_BUS_STOP = "25713"
-BUS_LINE = "747"  # CT2 internal number
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -177,7 +176,7 @@ while True:
         lcd.message = "Loading..."
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
-            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
+            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, "85")
             h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
             s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
@@ -189,7 +188,7 @@ while True:
             break
 
         lcd.clear()
-        s1 = build_message("CT2", ct2_times) + "\n" + build_message("GL ", train_times)
+        s1 = build_message("85", ct2_times) + "\n" + build_message("GL", train_times)
 
         s2 = (
             build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
