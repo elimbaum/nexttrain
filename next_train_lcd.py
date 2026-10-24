@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+# Repurposed for Boston
 
-print("next-train lcd")
+print("next-train lcd - boston version")
 print("getting ready...")
 print("  importing digital io")
+
 from asyncio import wait_for
 import board
 import digitalio
@@ -20,19 +22,20 @@ lcd_backlight = digitalio.DigitalInOut(board.D10)
 lcd_pins = [lcd_rs, lcd_en, lcd_d7, lcd_d6, lcd_d5, lcd_d4, lcd_backlight]
 
 for p in lcd_pins:
-    p.switch_to_output()    
+    p.switch_to_output()
 
 lcd_columns = 16
 lcd_rows = 2
+
 
 # backlight is controlled by pfet, invert
 def set_backlight(state):
     lcd.backlight = not state
 
+
 lcd = characterlcd.Character_LCD_Mono(
-    lcd_rs, lcd_en,
-    lcd_d4, lcd_d5, lcd_d6, lcd_d7,
-    lcd_columns, lcd_rows, lcd_backlight)
+    lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7, lcd_columns, lcd_rows, lcd_backlight
+)
 set_backlight(True)
 
 lcd.message = "nexttrainbox\nchoo choo..."
@@ -43,44 +46,67 @@ from gpiozero import Button
 print("  importing api")
 import urllib
 import urllib.request as url
+import certifi
+import ssl
 import json
 
 import time
 import signal
 import sys
+import math
 from collections import defaultdict
+from datetime import datetime, timezone
 
 ### API SETUP
-API_URL = "http://api.wmata.com/StationPrediction.svc/json/GetPrediction/"
-API_KEY = open('/home/pi/.wmata_api_key').read().strip()
-TOP_KEY = "Trains"
+API_URL = "https://api-v3.mbta.com/predictions?filter[stop]="
+API_KEY = open("/home/pi/.mbta_api_key").read().strip()
+TOP_KEY = "data"
 json = json.JSONDecoder()
 
-# station = "K02" # Clarendon
-# station = "K01" # Courthouse
-# station = "D07" # Potomac Ave
-# station "C05" # Rosslyn
-station = "E04" # columbia heights
+ctx = ssl.create_default_context(cafile=certifi.where())
+
+UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
+UNION_SQ_BUS_STOP = "2612"
+HAWKINS_BUS_STOP = "25713"
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
 button_nc = Button(15, pull_up=True)
 
-SLEEP_TIMEOUT = 60 # seconds
-TIME_PER_PAGE =  4 # seconds
+SLEEP_TIMEOUT = 30  # seconds
 
-def build_train_msg(train):
-    line = train['Line']
 
-    # destination codes are almost always 8 chars, but constrain to
-    # 9 character just to be safe
-    dest = train['Destination'][:9]
-    time = train['Min']
+def build_message(line_name, data):
+    now = datetime.now(tz=timezone.utc)
 
-    if time.isdigit():
-        time += "m"
-    
-    return "{:2} {:9} {:>3}".format(line, dest, time)
+    available_space = lcd_columns - (len(line_name) + 1)
+
+    arrival_times = []
+    for v in data:
+        attr = v.get("attributes", {})
+
+        time_str = attr.get("departure_time") or attr.get("arrival_time")
+
+        if time_str == None:
+            continue # arrival_times.append("?")
+        else:
+            t = datetime.fromisoformat(time_str)
+            delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
+            arrival_times.append(delta_minutes)
+
+    def _build_arr_str(x):
+        return ", ".join(x) + " m"
+
+    if data:
+        arr_str = _build_arr_str(arrival_times)
+        while len(arr_str) > available_space:
+            arrival_times = arrival_times[:-1]
+            arr_str = _build_arr_str(arrival_times)
+    else:
+        arr_str = "none :("
+
+    return f"{line_name} {arr_str.rjust(available_space)}"
+
 
 # spdt break-before-make microswitch (arcade button) full sequence
 def wait_for_full_press(t=None):
@@ -93,45 +119,47 @@ def wait_for_full_press(t=None):
     button_nc.wait_for_press()
     return True
 
-def train_sorter(train):
-    time = train['Min']
 
-    if time.isdigit():
-        return int(time)
-
-    if time == "ARR":
-        return -1
-    
-    if time == "BRD":
-        return -2
-
-    # sometimes, no time is returned; i.e. time == None
-    # call this far in the future (I think this is for trains that have not
-    # yet started moving)
-    return 60
-
-def get_new_data():
+def get_arrival_times(station, route=None):
     # print("getting new data...")
-    t = time.time()
+    request_url = f"{API_URL}{station}"
 
-    with url.urlopen(API_URL + station + "?api_key=" + API_KEY) as conn:
+    if route:
+        request_url += f"&filter[route]={route}"
+
+    req = url.Request(request_url, headers={"x-api-key": API_KEY})
+
+    with url.urlopen(req, context=ctx) as conn:
         resp = conn.read().decode()
         parsed = json.decode(resp)[TOP_KEY]
         # print("  new:", len(parsed), "trains ({:.4} sec)".format(time.time() - t))
 
-        return sorted(parsed, key=train_sorter)
+        return parsed
+
 
 def shutdown(s, f):
     lcd.clear()
+    lcd.message = "zzz..."
     set_backlight(False)
     print("\nbye")
     sys.exit(0)
 
-# TODO no passengers/empty/other edge cases (tricky?)
+
 # TODO get new data in a thread on a timer
-# TODO validate API key, confirm connectivity?
 
 signal.signal(signal.SIGINT, shutdown)
+
+time.sleep(1)
+
+# Check internet
+try:
+    with url.urlopen("https://8.8.8.8", context=ctx) as conn:
+        pass
+except urllib.error.URLError as e:
+    print(e)
+    lcd.clear()
+    lcd.message = "no internet"
+    wait_for_full_press(SLEEP_TIMEOUT)
 
 print("ready")
 while True:
@@ -140,52 +168,41 @@ while True:
 
     # wait to wake up from sleep
     wait_for_full_press()
-    last_press = time.time()
-    set_backlight(True) 
-    lcd.message = "Loading..."
+    set_backlight(True)
 
-    # display loop
+    # display updates
     while True:
         lcd.clear()
-
+        lcd.message = "Loading..."
         try:
-            trains = get_new_data()
+            train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
+            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, "85")
+            h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
+            s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
+            lcd.clear()
             lcd.message = "connection error\nplease try again"
-            wait_for_full_press(TIME_PER_PAGE)
+            wait_for_full_press(SLEEP_TIMEOUT)
             break
 
-        # empty response from api
-        if len(trains) == 0:
-            lcd.message = "No trains :("
-            wait_for_full_press(TIME_PER_PAGE)
+        lcd.clear()
+        s1 = build_message("85", ct2_times) + "\n" + build_message("GL", train_times)
+
+        s2 = (
+            build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
+        )
+
+        lcd.message = s1
+
+        # on timeout, sleep. on press, next page
+        if not wait_for_full_press(SLEEP_TIMEOUT):
             break
 
-        # sort by direction. reverse so that westbound trains are first
-        trains = sorted(trains, key=train_sorter)
+        lcd.message = s2
 
-        display_top_line = True
-        for t in trains:
-            already_waited = False
-            # print(t)
-            if display_top_line:    
-                lcd.clear()
-                lcd.message = build_train_msg(t) + "\n"
-                display_top_line = False
-            else:
-                lcd.message += build_train_msg(t)
-                display_top_line = True
-
-                # press to advance to next page, or wait a few sec
-                if wait_for_full_press(TIME_PER_PAGE):
-                    last_press = time.time()
-                already_waited = True
-
-        # short-circuit if we already waited
-        if not already_waited and wait_for_full_press(TIME_PER_PAGE):
-            last_press = time.time()
-
-        if (time.time() - last_press) > SLEEP_TIMEOUT:
+        # on press, reload
+        if not wait_for_full_press(SLEEP_TIMEOUT):
             break
+
