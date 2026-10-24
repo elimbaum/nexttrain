@@ -68,7 +68,6 @@ ctx = ssl.create_default_context(cafile=certifi.where())
 UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
 UNION_SQ_BUS_STOP = "2612"
 HAWKINS_BUS_STOP = "25713"
-BUS_LINE = "747"  # CT2 internal number
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -89,7 +88,7 @@ def build_message(line_name, data):
         time_str = attr.get("departure_time") or attr.get("arrival_time")
 
         if time_str == None:
-            arrival_times.append("?")
+            continue # arrival_times.append("?")
         else:
             t = datetime.fromisoformat(time_str)
             delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
@@ -177,9 +176,9 @@ while True:
         lcd.message = "Loading..."
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
-            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, BUS_LINE)
-            s109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
-            h109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
+            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, "85")
+            h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
+            s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
@@ -189,7 +188,7 @@ while True:
             break
 
         lcd.clear()
-        s1 = build_message("CT2", ct2_times) + "\n" + build_message("GL ", train_times)
+        s1 = build_message("85", ct2_times) + "\n" + build_message("GL", train_times)
 
         s2 = (
             build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)

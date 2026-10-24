@@ -67,7 +67,7 @@ def get_arrival_times(station, route=None):
 			time_str = attr.get('departure_time') or attr.get('arrival_time')
 
 			if time_str == None:
-				output.append('?')
+				continue
 			else:
 				t = datetime.fromisoformat(time_str)
 				delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
