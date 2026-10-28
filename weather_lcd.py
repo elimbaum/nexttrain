@@ -66,7 +66,7 @@ import calendar
 
 ### API SETUP
 API_URL = "https://wttr.is/"
-CITY = "kaunakakai"
+CITY = "new+haven"
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
