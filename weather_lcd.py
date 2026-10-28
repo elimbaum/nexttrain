@@ -210,10 +210,10 @@ while True:
     s1 = build_message(time_str, now_t, today_wx, progress=True)
     s2 = build_message("tmrw", tmrw_t, tmrw_wx)
 
-    lcd.message = s1
-
     # switch between pages
     while True:
+        lcd.message = s1
+
         # on timeout, sleep. on press, next page
         if not wait_for_full_press(SLEEP_TIMEOUT):
             break
