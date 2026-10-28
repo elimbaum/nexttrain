@@ -60,7 +60,6 @@ import json
 import time
 import signal
 import sys
-import math
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 import calendar
@@ -149,6 +148,8 @@ def shutdown(s, f):
     lcd.message = "zzz..."
     set_backlight(False)
     print("\nbye")
+    print(s)
+    print(f)
     sys.exit(0)
 
 
