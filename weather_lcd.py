@@ -95,6 +95,9 @@ def parse_struct(data, from_hour=None):
 def pr_to_str(x, hour=0):
     blocks = " \x01\x02\x03\x04\x05\x06\x07\xff"
 
+    if hour is None:
+        hour = 0
+
     elapsed = hour // 3
 
     bl = []
