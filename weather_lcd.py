@@ -138,7 +138,7 @@ def get_weather(city):
 
     with url.urlopen(req) as conn:
         resp = conn.read().decode()
-        parsed = json.decode(resp)['weather']
+        parsed = json.loads(resp)['weather']
 
         return parsed
 
@@ -161,7 +161,7 @@ time.sleep(1)
 
 # Check internet
 try:
-    with url.urlopen("http://8.8.8.8") as conn:
+    with url.urlopen("https://8.8.8.8") as conn:
         pass
 except urllib.error.URLError as e:
     print(e)
