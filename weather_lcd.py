@@ -40,10 +40,10 @@ set_backlight(True)
 print("  creating custom chars")
 
 # checkerboard
-lcd.create_char(0, [0b10101, 0b010101] * 4)
+lcd.create_char(0, [0b01010, 0b10101] * 3 + [0b01010, 0])
 
 # bar graph
-for i in range(2, 7 + 1):
+for i in range(1, 7 + 1):
     n0 = 8 - i
     lcd.create_char(i, [0] * n0 + [0b11111] * i)
 
@@ -66,7 +66,7 @@ import calendar
 
 ### API SETUP
 API_URL = "https://wttr.is/"
-CITY = "new+haven"
+CITY = "kaunakakai"
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -92,8 +92,10 @@ def parse_struct(data, from_hour=None):
 
     return (low, high, precip)
 
-def pr_to_str(x, elapsed=0):
-    blocks = " _\x02\x03\x04\x05\x06\x07\xff"
+def pr_to_str(x, hour=0):
+    blocks = " \x01\x02\x03\x04\x05\x06\x07\xff"
+
+    elapsed = hour // 3
 
     bl = []
     for index, pr in enumerate(x):
@@ -108,13 +110,15 @@ def pr_to_str(x, elapsed=0):
 
 
 def build_message(header, dow, wx):
-    deg = "\xfd"
+    deg = "\xdf"
     arrow = "\x7e"
 
-    (lo, hi, [precip]) = parse_struct(wx)
+    (lo, hi, precip) = parse_struct(wx, datetime.now().hour)
+    
+    dow = dow.lower()
 
     return "\n".join([
-        f"{header:5}  {pr_to_str(precip)}%",
+        f"{header:5}  {pr_to_str(precip, datetime.now().hour)}%",
         f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
     ])
 
@@ -148,7 +152,6 @@ def shutdown(s, f):
     lcd.message = "zzz..."
     set_backlight(False)
     print("\nbye")
-    print(s)
     print(f)
     sys.exit(0)
 
@@ -202,7 +205,7 @@ while True:
         tmrw_t = now + timedelta(1)
 
         s1 = build_message(time_str, calendar.day_abbr[now.weekday()], today_wx)
-        s2 = build_message("Tmrw", calendar.day_abbr[tmrw_t.weekday()], tmrw_wx)
+        s2 = build_message("tmrw", calendar.day_abbr[tmrw_t.weekday()], tmrw_wx)
 
         lcd.message = s1
 
