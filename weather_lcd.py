@@ -109,16 +109,18 @@ def pr_to_str(x, hour=0):
     return ''.join(bl)
 
 
-def build_message(header, dow, wx):
+def build_message(header, timestamp, wx, progress=False):
     deg = "\xdf"
     arrow = "\x7e"
 
-    (lo, hi, precip) = parse_struct(wx, datetime.now().hour)
-    
-    dow = dow.lower()
+    extra = timestamp.hour if progress else None
+
+    (lo, hi, precip) = parse_struct(wx, extra)
+
+    dow = calendar.day_abbr[timestamp.weekday()].lower()
 
     return "\n".join([
-        f"{header:5}  {pr_to_str(precip, datetime.now().hour)}%",
+        f"{header:5}  {pr_to_str(precip, extra)}%",
         f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
     ])
 
@@ -182,33 +184,33 @@ while True:
     wait_for_full_press()
     set_backlight(True)
 
-    # display updates
+    lcd.clear()
+    lcd.message = "Loading..."
+    try:
+        weather = get_weather(CITY)
+        today_wx, tmrw_wx = weather[0], weather[1]
+    except urllib.error.URLError:
+        # if there was an error getting the train data
+        # this can happen very soon after boot
+        lcd.clear()
+        lcd.message = "connection error\nplease try again"
+        wait_for_full_press(SLEEP_TIMEOUT)
+        continue
+
+    lcd.clear()
+
+    now_t = datetime.now()
+    time_str = f"{now_t.hour:2}:{now_t.minute:02}"
+
+    tmrw_t = now_t + timedelta(1)
+
+    s1 = build_message(time_str, now_t, today_wx, progress=True)
+    s2 = build_message("tmrw", tmrw_t, tmrw_wx)
+
+    lcd.message = s1
+
+    # switch between pages
     while True:
-        lcd.clear()
-        lcd.message = "Loading..."
-        try:
-            weather = get_weather(CITY)
-            today_wx, tmrw_wx = weather[0], weather[1]
-        except urllib.error.URLError:
-            # if there was an error getting the train data
-            # this can happen very soon after boot
-            lcd.clear()
-            lcd.message = "connection error\nplease try again"
-            wait_for_full_press(SLEEP_TIMEOUT)
-            break
-
-        lcd.clear()
-
-        now = datetime.now()
-        time_str = f"{now.hour:2}:{now.minute:02}"
-
-        tmrw_t = now + timedelta(1)
-
-        s1 = build_message(time_str, calendar.day_abbr[now.weekday()], today_wx)
-        s2 = build_message("tmrw", calendar.day_abbr[tmrw_t.weekday()], tmrw_wx)
-
-        lcd.message = s1
-
         # on timeout, sleep. on press, next page
         if not wait_for_full_press(SLEEP_TIMEOUT):
             break
@@ -218,4 +220,3 @@ while True:
         # on press, reload
         if not wait_for_full_press(SLEEP_TIMEOUT):
             break
-

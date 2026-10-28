@@ -2,8 +2,9 @@ import requests
 import json
 from pprint import pprint
 from datetime import datetime
+import sys
 
-city = "new+haven"
+city = "new+haven" if len(sys.argv) < 2 else sys.argv[1]
 
 r = json.loads(requests.get(f"https://wttr.is/{city}?format=j1").content)
 
