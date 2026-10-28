@@ -48,6 +48,10 @@ network={
 
 and copy to the SD card `boot` partition.
 
+## Update for New Haven
+
+New Haven does not have any public transportation I use, so I have changed the next train box to show me today & tomorrow's weather. `weather_term.py` demos this in the terminal. Weather sourced from `wttr.in`.
+
 ## Updates for MBTA
 
 - API information is [here](https://api-v3.mbta.com/).

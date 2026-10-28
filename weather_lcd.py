@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# Repurposed for Boston
+# Repurposed for New Haven
 
-print("next-train lcd - boston version")
+
+print("next-train lcd - new haven version (weather)")
 print("getting ready...")
 print("  importing digital io")
 
@@ -27,18 +28,26 @@ for p in lcd_pins:
 lcd_columns = 16
 lcd_rows = 2
 
-
 # backlight is controlled by pfet, invert
 def set_backlight(state):
     lcd.backlight = not state
-
 
 lcd = characterlcd.Character_LCD_Mono(
     lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7, lcd_columns, lcd_rows, lcd_backlight
 )
 set_backlight(True)
 
-lcd.message = "nexttrainbox\nchoo choo..."
+print("  creating custom chars")
+
+# checkerboard
+lcd.create_char(0, [0b10101, 0b010101] * 4)
+
+# bar graph
+for i in range(2, 7 + 1):
+    n0 = 8 - i
+    lcd.create_char(i, [0] * n0 + [0b11111] * i)
+
+lcd.message = "nextweatherbox\nchoo choo..."
 
 print("  importing gpio")
 from gpiozero import Button
@@ -46,8 +55,6 @@ from gpiozero import Button
 print("  importing api")
 import urllib
 import urllib.request as url
-import certifi
-import ssl
 import json
 
 import time
@@ -55,19 +62,12 @@ import signal
 import sys
 import math
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import calendar
 
 ### API SETUP
-API_URL = "https://api-v3.mbta.com/predictions?filter[stop]="
-API_KEY = open("/home/pi/.mbta_api_key").read().strip()
-TOP_KEY = "data"
-json = json.JSONDecoder()
-
-ctx = ssl.create_default_context(cafile=certifi.where())
-
-UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
-UNION_SQ_BUS_STOP = "2612"
-HAWKINS_BUS_STOP = "25713"
+API_URL = "https://wttr.is/"
+CITY = "new+haven"
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -75,38 +75,49 @@ button_nc = Button(15, pull_up=True)
 
 SLEEP_TIMEOUT = 30  # seconds
 
+def get_weather(data, from_hour=None):
+    hourly = data['hourly']
+    forecast_hourly = hourly
+    if from_hour is not None:
+        start_time = (from_hour // 3) * 300
+        forecast_hourly = [hr for hr in hourly if int(hr['time']) >= start_time]
 
-def build_message(line_name, data):
-    now = datetime.now(tz=timezone.utc)
-
-    available_space = lcd_columns - (len(line_name) + 1)
-
-    arrival_times = []
-    for v in data:
-        attr = v.get("attributes", {})
-
-        time_str = attr.get("departure_time") or attr.get("arrival_time")
-
-        if time_str == None:
-            continue # arrival_times.append("?")
-        else:
-            t = datetime.fromisoformat(time_str)
-            delta_minutes = str(max(0, math.floor((t - now).total_seconds() / 60)))
-            arrival_times.append(delta_minutes)
-
-    def _build_arr_str(x):
-        return ", ".join(x) + " m"
-
-    if data:
-        arr_str = _build_arr_str(arrival_times)
-        while len(arr_str) > available_space:
-            arrival_times = arrival_times[:-1]
-            arr_str = _build_arr_str(arrival_times)
+    if forecast_hourly:
+        low = min(int(hr['tempF']) for hr in forecast_hourly)
+        high = max(int(hr['tempF']) for hr in forecast_hourly)
     else:
-        arr_str = "none :("
+        low = int(data['mintempF'])
+        high = int(data['maxtempF'])
 
-    return f"{line_name} {arr_str.rjust(available_space)}"
+    precip = list(map(int, (hr['chanceofrain'] for hr in hourly)))
 
+    return (low, high, precip)
+
+def pr_to_str(x, elapsed=0):
+    blocks = " _\x02\x03\x04\x05\x06\x07\xff"
+
+    bl = []
+    for index, pr in enumerate(x):
+        if index < elapsed:
+            # Checkerboard
+            bl.append("\x00")
+            continue
+        block_height = int(round(pr / 100 * (len(blocks) - 1)))
+        bl.append(blocks[block_height])
+
+    return ''.join(bl)
+
+
+def build_message(header, dow, wx):
+    deg = "\xfd"
+    arrow = "\x7e"
+
+    (lo, hi, [precip]) = get_weather(wx)
+
+    return "\n".join([
+        f"{header:5}  {pr_to_str(precip)}%",
+        f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
+    ])
 
 # spdt break-before-make microswitch (arcade button) full sequence
 def wait_for_full_press(t=None):
@@ -120,19 +131,15 @@ def wait_for_full_press(t=None):
     return True
 
 
-def get_arrival_times(station, route=None):
+def get_weather(city):
     # print("getting new data...")
-    request_url = f"{API_URL}{station}"
+    request_url = f"{API_URL}{city}?format=j1"
 
-    if route:
-        request_url += f"&filter[route]={route}"
+    req = url.Request(request_url)
 
-    req = url.Request(request_url, headers={"x-api-key": API_KEY})
-
-    with url.urlopen(req, context=ctx) as conn:
+    with url.urlopen(req) as conn:
         resp = conn.read().decode()
-        parsed = json.decode(resp)[TOP_KEY]
-        # print("  new:", len(parsed), "trains ({:.4} sec)".format(time.time() - t))
+        parsed = json.decode(resp)['weather']
 
         return parsed
 
@@ -153,12 +160,12 @@ time.sleep(1)
 
 # Check internet
 try:
-    with url.urlopen("https://8.8.8.8", context=ctx) as conn:
+    with url.urlopen("http://8.8.8.8") as conn:
         pass
 except urllib.error.URLError as e:
     print(e)
     lcd.clear()
-    lcd.message = "no internet"
+    lcd.message = "no internet!"
     wait_for_full_press(SLEEP_TIMEOUT)
 
 print("ready")
@@ -175,10 +182,8 @@ while True:
         lcd.clear()
         lcd.message = "Loading..."
         try:
-            train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
-            ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, "85")
-            h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
-            s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
+            weather = get_weather(CITY)
+            today_wx, tmrw_wx = weather[0], weather[1]
         except urllib.error.URLError:
             # if there was an error getting the train data
             # this can happen very soon after boot
@@ -188,11 +193,14 @@ while True:
             break
 
         lcd.clear()
-        s1 = build_message("85", ct2_times) + "\n" + build_message("GL", train_times)
 
-        s2 = (
-            build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
-        )
+        now = datetime.now()
+        time_str = f"{now.hour:2}:{now.minute:02}"
+
+        tmrw_t = now + timedelta(1)
+
+        s1 = build_message(time_str, calendar.day_abbr[now.weekday()], today_wx)
+        s2 = build_message("Tmrw", calendar.day_abbr[tmrw_t.weekday()], tmrw_wx)
 
         lcd.message = s1
 
