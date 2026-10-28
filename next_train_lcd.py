@@ -68,6 +68,7 @@ ctx = ssl.create_default_context(cafile=certifi.where())
 UNION_SQ_GREEN_LINE_STATION = "place-unsqu"
 UNION_SQ_BUS_STOP = "2612"
 HAWKINS_BUS_STOP = "25713"
+SOMERVILLE_87_BUS = "2510"
 
 # don't debounce microswitches!
 button_no = Button(14, pull_up=True)
@@ -177,6 +178,7 @@ while True:
         try:
             train_times = get_arrival_times(UNION_SQ_GREEN_LINE_STATION)
             ct2_times = get_arrival_times(UNION_SQ_BUS_STOP, "85")
+            _87_times = get_arrival_times(SOMERVILLE_87_BUS, "87")
             h109_times = get_arrival_times(UNION_SQ_BUS_STOP, "109")
             s109_times = get_arrival_times(HAWKINS_BUS_STOP, "109")
         except urllib.error.URLError:
@@ -188,11 +190,11 @@ while True:
             break
 
         lcd.clear()
-        s1 = build_message("85", ct2_times) + "\n" + build_message("GL", train_times)
+        s1 = build_message("85", ct2_times) + "\n" + build_message("87", _87_times)
 
-        s2 = (
-            build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
-        )
+        s2 = build_message("109H", h109_times) + "\n" + build_message("109S", s109_times)
+        
+        s3 = build_message("GL", train_times) + "\n" + build_message("85", ct2_times) 
 
         lcd.message = s1
 
@@ -201,6 +203,11 @@ while True:
             break
 
         lcd.message = s2
+
+        if not wait_for_full_press(SLEEP_TIMEOUT):
+            break
+
+        lcd.message = s3
 
         # on press, reload
         if not wait_for_full_press(SLEEP_TIMEOUT):
