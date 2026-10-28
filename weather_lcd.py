@@ -123,7 +123,7 @@ def build_message(header, timestamp, wx, progress=False):
     dow = calendar.day_abbr[timestamp.weekday()].lower()
 
     return "\n".join([
-        f"{header:5}  {pr_to_str(precip, extra)}%",
+        f"{header:5} r{pr_to_str(precip, extra)}%",
         f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
     ])
 
@@ -223,3 +223,4 @@ while True:
         # on press, reload
         if not wait_for_full_press(SLEEP_TIMEOUT):
             break
+
