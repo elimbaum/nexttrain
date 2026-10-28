@@ -74,7 +74,7 @@ button_nc = Button(15, pull_up=True)
 
 SLEEP_TIMEOUT = 30  # seconds
 
-def get_weather(data, from_hour=None):
+def parse_struct(data, from_hour=None):
     hourly = data['hourly']
     forecast_hourly = hourly
     if from_hour is not None:
@@ -111,7 +111,7 @@ def build_message(header, dow, wx):
     deg = "\xfd"
     arrow = "\x7e"
 
-    (lo, hi, [precip]) = get_weather(wx)
+    (lo, hi, [precip]) = parse_struct(wx)
 
     return "\n".join([
         f"{header:5}  {pr_to_str(precip)}%",
@@ -161,6 +161,7 @@ time.sleep(1)
 
 # Check internet
 try:
+    print("  dns check")
     with url.urlopen("https://8.8.8.8") as conn:
         pass
 except urllib.error.URLError as e:
