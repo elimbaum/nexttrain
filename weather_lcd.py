@@ -81,7 +81,7 @@ def build_message(header, timestamp, lo, hi, precip):
     dow = calendar.day_abbr[timestamp.weekday()].lower()
 
     return "\n".join([
-        f"{header:5} p{prob_to_str(precip, blocks)}|",
+        f"{header:5} P{prob_to_str(precip, blocks)}|",
         f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
     ])
 
