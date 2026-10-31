@@ -39,9 +39,6 @@ set_backlight(True)
 
 print("  creating custom chars")
 
-# checkerboard
-lcd.create_char(0, [0b01010, 0b10101] * 3 + [0b01010, 0])
-
 # bar graph
 for i in range(1, 7 + 1):
     n0 = 8 - i
@@ -64,6 +61,8 @@ from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 import calendar
 
+from weather_term import today_conditions, get_weather as summarize, prob_to_str
+
 ### API SETUP
 API_URL = "https://wttr.is/"
 CITY = "new+haven"
@@ -74,56 +73,15 @@ button_nc = Button(15, pull_up=True)
 
 SLEEP_TIMEOUT = 30  # seconds
 
-def parse_struct(data, from_hour=None):
-    hourly = data['hourly']
-    forecast_hourly = hourly
-    if from_hour is not None:
-        start_time = (from_hour // 3) * 300
-        forecast_hourly = [hr for hr in hourly if int(hr['time']) >= start_time]
-
-    if forecast_hourly:
-        low = min(int(hr['tempF']) for hr in forecast_hourly)
-        high = max(int(hr['tempF']) for hr in forecast_hourly)
-    else:
-        low = int(data['mintempF'])
-        high = int(data['maxtempF'])
-
-    precip = list(map(int, (hr['chanceofrain'] for hr in hourly)))
-
-    return (low, high, precip)
-
-def pr_to_str(x, hour=0):
-    blocks = " \x01\x02\x03\x04\x05\x06\x07\xff"
-
-    if hour is None:
-        hour = 0
-
-    elapsed = hour // 3
-
-    bl = []
-    for index, pr in enumerate(x):
-        if index < elapsed:
-            # Checkerboard
-            bl.append("\x00")
-            continue
-        block_height = int(round(pr / 100 * (len(blocks) - 1)))
-        bl.append(blocks[block_height])
-
-    return ''.join(bl)
-
-
-def build_message(header, timestamp, wx, progress=False):
+def build_message(header, timestamp, lo, hi, precip):
     deg = "\xdf"
     arrow = "\x7e"
-
-    extra = timestamp.hour if progress else None
-
-    (lo, hi, precip) = parse_struct(wx, extra)
+    blocks = " \x01\x02\x03\x04\x05\x06\x07\xff"
 
     dow = calendar.day_abbr[timestamp.weekday()].lower()
 
     return "\n".join([
-        f"{header:5}  {pr_to_str(precip, extra)}%",
+        f"{header:5}  {prob_to_str(precip, blocks)}%",
         f"{dow} {lo:>3}{deg}F {arrow}{hi:>3}{deg}F"
     ])
 
@@ -207,8 +165,10 @@ while True:
 
     tmrw_t = now_t + timedelta(1)
 
-    s1 = build_message(time_str, now_t, today_wx, progress=True)
-    s2 = build_message("tmrw", tmrw_t, tmrw_wx)
+    (lo, hi, precip) = today_conditions(today_wx, tmrw_wx, now_t.hour)
+    s1 = build_message(time_str, now_t, lo, hi, precip)
+    (lo, hi, precip) = summarize(tmrw_wx['hourly'])
+    s2 = build_message("tmrw", tmrw_t, lo, hi, precip)
 
     # switch between pages
     while True:

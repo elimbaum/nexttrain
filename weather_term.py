@@ -1,67 +1,73 @@
-import requests
-import json
-from pprint import pprint
-from datetime import datetime
-import sys
+def remaining_today(day, hour):
+    start = (hour // 3) * 300
+    return [hr for hr in day['hourly'] if int(hr['time']) >= start]
 
-city = "new+haven" if len(sys.argv) < 2 else sys.argv[1]
+# precip: next 24h, eight 3-hour slots from the current one
+def next_24h(days, hour):
+    start = (hour // 3) * 300
+    slots = []
+    for i, day in enumerate(days):
+        for hr in day['hourly']:
+            if i == 0 and int(hr['time']) < start:
+                continue
+            slots.append(hr)
+            if len(slots) == 8:
+                return slots
+    return slots
 
-r = json.loads(requests.get(f"https://wttr.is/{city}?format=j1").content)
-
-today = r['weather'][0]
-tmrw = r['weather'][1]
-
-def get_weather(data, from_hour=None):
-    hourly = data['hourly']
-    forecast_hourly = hourly
-    if from_hour is not None:
-        start_time = (from_hour // 3) * 300
-        forecast_hourly = [hr for hr in hourly if int(hr['time']) >= start_time]
-
-    if forecast_hourly:
-        low = min(int(hr['tempF']) for hr in forecast_hourly)
-        high = max(int(hr['tempF']) for hr in forecast_hourly)
-    else:
-        low = int(data['mintempF'])
-        high = int(data['maxtempF'])
-
+def get_weather(hourly):
+    low = min(int(hr['tempF']) for hr in hourly)
+    high = max(int(hr['tempF']) for hr in hourly)
     precip = list(map(int, (hr['chanceofrain'] for hr in hourly)))
-
     return (low, high, precip)
 
-def prob_to_str(x, elapsed=0):
-    blocks = " ▁▂▃▄▅▆▇▉"
+def today_conditions(today, tomorrow, hour):
+    (lo, hi, _) = get_weather(remaining_today(today, hour))
+    (_, _, precip) = get_weather(next_24h([today, tomorrow], hour))
+    return (lo, hi, precip)
 
+def prob_to_str(x, blocks=" ▁▂▃▄▅▆▇▉"):
     bl = []
-    for index, pr in enumerate(x):
-        if index < elapsed:
-            bl.append("▒")
-            continue
+    for pr in x:
         block_height = int(round(pr / 100 * (len(blocks) - 1)))
         bl.append(blocks[block_height])
 
     return ''.join(bl)
 
-## print today
-now = datetime.now()
+def main():
+    import requests
+    import json
+    from pprint import pprint
+    from datetime import datetime
+    import sys
 
-dow = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+    city = "new+haven" if len(sys.argv) < 2 else sys.argv[1]
 
-(l, h, p) = get_weather(today, now.hour)
+    r = json.loads(requests.get(f"https://wttr.is/{city}?format=j1").content)
 
-print("┌" + "─" * 16 + "┐")
-print(f"│{now.hour:2}:{now.minute:02}  {prob_to_str(p, now.hour // 3)}%│")
-print(f"│{dow[now.weekday()]} {l:>3}°F →{h:>3}°F│")
-print("└" + "─" * 16 + "┘")
+    today = r['weather'][0]
+    tmrw = r['weather'][1]
+
+    ## print today
+    now = datetime.now()
+
+    dow = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+    (l, h, p) = today_conditions(today, tmrw, now.hour)
+
+    print("┌" + "─" * 16 + "┐")
+    print(f"│{now.hour:2}:{now.minute:02} p{prob_to_str(p)}|│")
+    print(f"│{dow[now.weekday()]} {l:>3}°F →{h:>3}°F│")
+    print("└" + "─" * 16 + "┘")
 
 
-## print tmrw
-(l, h, p) = get_weather(tmrw)
+    ## print tmrw
+    (l, h, p) = get_weather(tmrw['hourly'])
 
-print("┌" + "─" * 16 + "┐")
-print(f"│tmrw   {prob_to_str(p)}%│")
-print(f"│{dow[(now.weekday() + 1) % 7]} {l:>3}°F →{h:>3}°F│")
-print("└" + "─" * 16 + "┘")
+    print("┌" + "─" * 16 + "┐")
+    print(f"│tmrw  p{prob_to_str(p)}|│")
+    print(f"│{dow[(now.weekday() + 1) % 7]} {l:>3}°F →{h:>3}°F│")
+    print("└" + "─" * 16 + "┘")
 
 ## |--------------|
 ## HH:MM   12345678
@@ -76,3 +82,6 @@ print("└" + "─" * 16 + "┘")
 # medium shade ▒
 
 # https://omerk.github.io/lcdchargen/
+
+if __name__ == "__main__":
+    main()
